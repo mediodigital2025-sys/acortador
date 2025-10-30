@@ -59,12 +59,11 @@ st.markdown("""
         color: #1E88E5 !important;
         font-size: 1.1rem !important;
     }
+    .url-container {
+        margin-bottom: 10px;
+    }
     </style>
 """, unsafe_allow_html=True)
-
-# URL input con label en negrita
-st.markdown('<p class="custom-label">Ingrese la URL que desea acortar:</p>', unsafe_allow_html=True)
-url_original = st.text_input("", placeholder="https://ejemplo.com", label_visibility="collapsed")
 
 # Define the options for the dropdown
 utm_source_options = ["", "Telegram", "Facebook", "YouTube", "WhatsApp", "Twitter"]
@@ -107,9 +106,25 @@ if utm_medium:
 if utm_term:
     utm_params["utm_term"] = utm_term.lower()
 
-# Mostrar preview de la URL con UTM
-if url_original and utm_params:
-    parsed_url = urlparse(url_original)
+# Sección para múltiples URLs
+st.markdown('<p class="custom-label">Ingrese hasta 8 URLs que desea acortar:</p>', unsafe_allow_html=True)
+
+# Crear 8 campos de texto para URLs
+urls = []
+for i in range(8):
+    url = st.text_input(
+        f"URL {i+1}", 
+        placeholder=f"https://ejemplo.com/url{i+1}",
+        key=f"url_{i}",
+        label_visibility="collapsed"
+    )
+    if url:
+        urls.append(url)
+
+# Mostrar preview de la primera URL con UTM (si existe)
+if urls and utm_params:
+    first_url = urls[0]
+    parsed_url = urlparse(first_url)
     query_params = parse_qs(parsed_url.query)
     for key, value in utm_params.items():
         query_params[key] = [value]
@@ -122,40 +137,58 @@ if url_original and utm_params:
         new_query,
         parsed_url.fragment
     ))
-    st.info(f"**URL con UTM:** {url_preview}")
+    st.info(f"**Ejemplo de URL con UTM:** {url_preview}")
 
 # Botón de acortar con estilo mejorado
 st.markdown("<br>", unsafe_allow_html=True)
-if st.button("¡Acortar!", use_container_width=True, type="primary"):
-    if url_original:
-        with st.spinner("Acortando URL..."):
-            url_final = acortar_url_isgd(url_original, utm_params)
+if st.button("¡Acortar URLs!", use_container_width=True, type="primary"):
+    if urls:
+        urls_acortadas = []
+        with st.spinner("Acortando URLs..."):
+            for i, url in enumerate(urls):
+                if url:  # Solo procesar URLs no vacías
+                    url_final = acortar_url_isgd(url, utm_params)
+                    if url_final:
+                        urls_acortadas.append((f"URL {i+1}", url, url_final))
         
-        if url_final:
-            st.success("¡URL acortada exitosamente!")
-            st.write("**La URL acortada es:**")
-            st.code(url_final, language=None)
+        if urls_acortadas:
+            st.success(f"¡Se acortaron {len(urls_acortadas)} URLs exitosamente!")
             
-            # Botones de acción
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"""
-                    <a href="{url_final}" target="_blank">
-                        <button style="width:100%; background-color: #4CAF50; color: white; padding: 12px; 
-                                    border: none; border-radius: 6px; cursor: pointer; font-size: 1rem;
-                                    font-weight: bold;">
-                            🔗 Abrir URL
-                        </button>
-                    </a>
-                """, unsafe_allow_html=True)
-            with col2:
-                if st.button("📋 Copiar URL", use_container_width=True, key="copy_button"):
-                    st.code(url_final, language=None)
-                    st.success("¡URL copiada al portapapeles!")
+            # Mostrar resultados en una tabla
+            st.write("**Resultados:**")
+            
+            for nombre_url, url_original, url_acortada in urls_acortadas:
+                with st.expander(f"{nombre_url}: {url_acortada}"):
+                    st.write(f"**Original:** {url_original}")
+                    st.write(f"**Acortada:** `{url_acortada}`")
+                    
+                    # Botones de acción para cada URL
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown(f"""
+                            <a href="{url_acortada}" target="_blank">
+                                <button style="width:100%; background-color: #4CAF50; color: white; padding: 8px; 
+                                            border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                    🔗 Abrir URL
+                                </button>
+                            </a>
+                        """, unsafe_allow_html=True)
+                    with col2:
+                        if st.button("📋 Copiar", key=f"copy_{url_acortada}", use_container_width=True):
+                            st.code(url_acortada, language=None)
+                            st.success(f"¡{nombre_url} copiada!")
+            
+            # Botón para copiar todas las URLs
+            st.markdown("---")
+            if st.button("📋 Copiar todas las URLs acortadas", use_container_width=True):
+                todas_las_urls = "\n".join([url_acortada for _, _, url_acortada in urls_acortadas])
+                st.code(todas_las_urls, language=None)
+                st.success("¡Todas las URLs copiadas al portapapeles!")
+                
         else:
-            st.error("Error al acortar la URL. Intente nuevamente.")
+            st.error("Error al acortar las URLs. Intente nuevamente.")
     else:
-        st.error("Por favor, ingrese una URL para acortar.")
+        st.error("Por favor, ingrese al menos una URL para acortar.")
 
 # Footer information
 st.markdown("---")
